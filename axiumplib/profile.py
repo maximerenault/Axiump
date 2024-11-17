@@ -1,5 +1,6 @@
 from math import sqrt, atan, sin, cos
 from axiumplib.utils.geom import wrap_point_on_cylinder, wrap_point_on_X_axis_cylinder, rotate_2D_pt
+from axiumplib.glob_params import NACA, FLAT
 from json import load as jsonload
 
 
@@ -11,9 +12,9 @@ class ProfileBuilder:
     def create_profile(self):
         # Generate the initial 2D profile
         w, c = self.params.profile_params
-        if self.params.profile_type == "naca":
+        if self.params.profile_type == NACA:
             profile_func = naca
-        elif self.params.profile_type == "flat":
+        elif self.params.profile_type == FLAT:
             profile_func = flat_ellipse
         self.profile = [
             lambda t, half_width=w, chord_length=c: profile_func(t, half_width, chord_length, top=True),
@@ -85,7 +86,7 @@ class ProfileBuilder:
 class ProfileParameters:
     def __init__(
         self,
-        profile_type="naca",
+        profile_type=NACA,
         chord_length=1,
         half_width=0.025,
         max_camber=0.01,

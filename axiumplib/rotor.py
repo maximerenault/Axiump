@@ -10,6 +10,7 @@ from axiumplib.utils.occ import (
     fix_solid,
     get_solids_from_shape,
 )
+from axiumplib.glob_params import NACA, FLAT
 
 
 class RotorBuilder:
@@ -56,7 +57,7 @@ class RotorParameters:
         self,
         tot_length=3,
         n_blades=4,
-        blade_profile_type="flat",
+        blade_profile_type=FLAT,
         blade_camber_position=0.4,
         blade_thickness=0.05,
         blade_lead_angle_func=lambda r: atan(3 * r),
@@ -126,8 +127,8 @@ class RotorParameters:
 
 
 if __name__ == "__main__":
-    rotor_params = RotorParameters(blade_profile_type="flat")
-    rotor_solid = RotorBuilder(rotor_params).add_hub().add_shroud().add_blades(50, 10).get_occ_solid()
+    rotor_params = RotorParameters(blade_profile_type=FLAT)
+    rotor_solid = RotorBuilder(rotor_params).add_hub().add_shroud().add_blades(100, 10).get_occ_solid()
     from axiumplib.utils.occ import save_shape_to_brep
 
     save_shape_to_brep(rotor_solid, "rotor.brep")
