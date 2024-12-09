@@ -217,7 +217,7 @@ class BladeBuilder:
                 raise ValueError("Unknown method")
 
         if False:
-            # Prjection may be needed sometimes... seems to work without it
+            # Projection may be needed sometimes... seems to work without it
             rotation_geom = Geom_Transformation()
             rotation_geom.SetRotation(gp_Ax1(gp_Pnt(), gp_Dir()), pi)
             cylinder_geom.Transform(rotation_geom.Trsf())

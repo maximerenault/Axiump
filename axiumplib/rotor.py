@@ -1,6 +1,6 @@
 from math import atan
 from axiumplib.hub import HubBuilder, HubParameters
-from axiumplib.blade import BladeBuilder, BladeParameters
+from axiumplib.blade import BladeBuilder, BladeParameters, is_edge_at_radius
 from axiumplib.shroud import ShroudBuilder, ShroudParameters
 from axiumplib.utils.occ import (
     boolean_union,
@@ -9,6 +9,8 @@ from axiumplib.utils.occ import (
     solid_from_compound,
     fix_solid,
     get_solids_from_shape,
+    get_edges_from_shape,
+    fillet_solid_edges,
 )
 from axiumplib.glob_params import NACA, FLAT
 
@@ -17,6 +19,7 @@ class RotorBuilder:
     def __init__(self, params):
         self.params = params
         self.parts = []
+        self.fillet_edges = []
 
     def add_hub(self):
         hub = HubBuilder(self.params.hub_params).create_hub().get_occ_solid()
@@ -40,16 +43,26 @@ class RotorBuilder:
         blade = BladeBuilder(self.params.blade_params).create_blade().get_occ_solid(u_points, v_points, u_func, v_func)
         blade = translate(blade, (self.params.hub_front_length + self.params.blade_clearance / 2, 0, 0))
         blades = rotation_array(blade, n_blades)
+
+        edges = [edge for i in range(n_blades) for edge in get_edges_from_shape(blades[i])]
+        hub_edges = [edge for edge in edges if is_edge_at_radius(edge, self.params.hub_radius)]
+        shroud_edges = [edge for edge in edges if is_edge_at_radius(edge, self.params.blade_max_radius)]
+        self.fillet_edges.extend(hub_edges + shroud_edges)
+
         self.parts.extend(blades)
         return self
 
-    def get_occ_solid(self):
-        union = boolean_union(self.parts)
+    def get_occ_solid(self, fillet_radius=0.0):
+        union, modified = boolean_union(self.parts, check_modified=self.fillet_edges)
+        modified = [edge for edges in modified for edge in edges]
+        if fillet_radius > 0:
+            union = fillet_solid_edges(union, modified, fillet_radius)
         solids = get_solids_from_shape(union)
         if len(solids) == 1:
-            return fix_solid(solids[0])
+            solid = fix_solid(solids[0])
         else:
-            return fix_solid(solid_from_compound(union))
+            solid = fix_solid(solid_from_compound(union))
+        return solid
 
 
 class RotorParameters:
@@ -72,6 +85,8 @@ class RotorParameters:
         hub_back_angle=0.2,
         shroud_thickness=0.05,
         shroud_slant_angle=1,
+        shroud_in_fillet_radius=0.01,
+        shroud_out_fillet_radius=0.02,
     ):
         self.tot_length = tot_length
         self.n_blades = n_blades
@@ -90,6 +105,8 @@ class RotorParameters:
         self.hub_back_angle = hub_back_angle
         self.shroud_thickness = shroud_thickness
         self.shroud_slant_angle = shroud_slant_angle
+        self.shroud_in_fillet_radius = shroud_in_fillet_radius
+        self.shroud_out_fillet_radius = shroud_out_fillet_radius
 
     @property
     def blade_params(self):
@@ -123,12 +140,14 @@ class RotorParameters:
             in_radius=self.blade_max_radius,
             thickness=self.shroud_thickness,
             slant_angle=self.shroud_slant_angle,
+            in_fillet_radius=self.shroud_in_fillet_radius,
+            out_fillet_radius=self.shroud_out_fillet_radius,
         )
 
 
 if __name__ == "__main__":
     rotor_params = RotorParameters(blade_profile_type=FLAT)
-    rotor_solid = RotorBuilder(rotor_params).add_hub().add_shroud().add_blades(100, 10).get_occ_solid()
+    rotor_solid = RotorBuilder(rotor_params).add_hub().add_shroud().add_blades(61, 10).get_occ_solid(fillet_radius=0.05)
     from axiumplib.utils.occ import save_shape_to_brep
 
     save_shape_to_brep(rotor_solid, "rotor.brep")

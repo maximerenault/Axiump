@@ -69,7 +69,7 @@ class HubParameters:
         front_angle=0.5,
         back_angle=0.2,
         front_fillet_radius=0.04,
-        back_fillet_radius=0.04,
+        back_fillet_radius=0.08,
     ):
         self.type = type
         self.tot_length = tot_length

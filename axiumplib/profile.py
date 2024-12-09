@@ -16,6 +16,8 @@ class ProfileBuilder:
             profile_func = naca
         elif self.params.profile_type == FLAT:
             profile_func = flat_ellipse
+        else:
+            raise ValueError("Invalid profile type: {}".format(self.params.profile_type))
         self.profile = [
             lambda t, half_width=w, chord_length=c: profile_func(t, half_width, chord_length, top=True),
             lambda t, half_width=w, chord_length=c: profile_func(t, half_width, chord_length, top=False),

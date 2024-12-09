@@ -19,8 +19,8 @@ from OCC.Core.TopoDS import (
     TopoDS_Vertex,
 )
 from OCC.Core.TopExp import TopExp_Explorer
-from OCC.Core.BRepFilletAPI import BRepFilletAPI_MakeFillet2d
-from OCC.Core.TopAbs import TopAbs_VERTEX, TopAbs_EDGE, TopAbs_FACE, TopAbs_WIRE, TopAbs_SOLID, TopAbs_SHAPE
+from OCC.Core.BRepFilletAPI import BRepFilletAPI_MakeFillet2d, BRepFilletAPI_MakeFillet
+from OCC.Core.TopAbs import TopAbs_VERTEX, TopAbs_EDGE, TopAbs_FACE, TopAbs_WIRE, TopAbs_SOLID
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Fuse
 from OCC.Core.Geom import Geom_Curve
@@ -173,6 +173,15 @@ def get_elem_from_shape(shape: TopoDS_Shape, elemAbs) -> list[TopoDS_Shape]:
     return elems
 
 
+def extract_shape_from_ListOfShape(list_of_shape: TopTools_ListOfShape) -> list[TopoDS_Shape]:
+    """Extracts the shapes from a TopTools_ListOfShape and returns them."""
+    shapes = []
+    for i in range(len(list_of_shape)):
+        shapes.append(list_of_shape.First())
+        list_of_shape.RemoveFirst()
+    return shapes
+
+
 def fillet_face_vertices(face: TopoDS_Face, radii: float | list[float]):
     """Fillet the vertices of a face with a given radius, or one radius at each vertex."""
     vertices = get_vertices_from_shape(face)
@@ -184,6 +193,20 @@ def fillet_face_vertices(face: TopoDS_Face, radii: float | list[float]):
     for i, vertex in enumerate(vertices):
         if radii[i] > 0:
             fillet_maker.AddFillet(vertex, radii[i])
+    return fillet_maker.Shape()
+
+
+def fillet_solid_edges(solid: TopoDS_Solid, edges: list[TopoDS_Edge], radii: float | list[float]):
+    """Fillet the given edges of a solid with a given radius, or one radius at each edge."""
+    # edges = get_edges_from_shape(solid)
+    # edges = [edges[i] for i in range(len(edges)) if i % 2 == 0]  # removing duplicates
+    if isinstance(radii, (float, int)):
+        radii = [radii] * len(edges)
+    assert len(edges) == len(radii), "Number of edges and radii must match."
+    fillet_maker = BRepFilletAPI_MakeFillet(solid)
+    for i, edge in enumerate(edges):
+        if radii[i] > 0:
+            fillet_maker.Add(radii[i], edge)
     return fillet_maker.Shape()
 
 
@@ -207,10 +230,16 @@ def rotation_array(
     return array
 
 
-def boolean_union(shapes: list[TopoDS_Shape]) -> TopoDS_Shape:
-    """Perform a Boolean union on a list of solids."""
+def boolean_union(
+    shapes: list[TopoDS_Shape],
+    check_generated: list[TopoDS_Shape] | None = None,
+    check_modified: list[TopoDS_Shape] | None = None,
+) -> TopoDS_Shape:
+    """Perform a Boolean union on a list of shapes."""
     if not shapes:
         raise ValueError("The list of solids is empty.")
+    if len(shapes) == 1:
+        raise ValueError("Only one shape in boolean union.")
     objectShapes = TopTools_ListOfShape()
     objectShapes.Append(shapes[0])
     toolShapes = TopTools_ListOfShape()
@@ -227,6 +256,28 @@ def boolean_union(shapes: list[TopoDS_Shape]) -> TopoDS_Shape:
     except:
         pass
     bool_fuse.Check()
+    if check_generated is not None:
+        if not bool_fuse.HasGenerated():
+            print("Fusion bool has no generated shapes.")
+        generated = []
+        for shape in check_generated:
+            shape_generated = bool_fuse.Generated(shape)
+            if len(shape_generated) > 0:
+                generated.extend(extract_shape_from_ListOfShape(shape_generated))
+    if check_modified is not None:
+        if not bool_fuse.HasModified():
+            print("Fusion bool has no modified shapes.")
+        modified = []
+        for shape in check_modified:
+            shape_modified = bool_fuse.Modified(shape)
+            if len(shape_modified) > 0:
+                modified.extend(extract_shape_from_ListOfShape(shape_modified))
+    if check_generated is not None and check_modified is None:
+        return bool_fuse.Shape(), generated
+    elif check_generated is None and check_modified is not None:
+        return bool_fuse.Shape(), modified
+    elif check_generated is not None and check_modified is not None:
+        return bool_fuse.Shape(), generated, modified
     return bool_fuse.Shape()
 
 

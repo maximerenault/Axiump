@@ -4,7 +4,7 @@
 # latter influences the distance between the blade and the hub
 
 FUSE_TOL = 5e-4
-BLADE_APPROX_TOL = 1e-4
+BLADE_APPROX_TOL = 1e-5
 FIXSOLID_PRECISION = 1e-4
 
 FIXFACE_PRECISION = 1e-6
