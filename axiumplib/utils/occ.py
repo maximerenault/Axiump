@@ -25,6 +25,14 @@ from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Fuse
 from OCC.Core.Geom import Geom_Curve
 from axiumplib.glob_params import FUSE_TOL, FIXSOLID_PRECISION
+from axiumplib.utils.errors import (
+    FixSolidError,
+    SewingError,
+    FaceFromPointsError,
+    FilletFaceError,
+    FilletSolidError,
+    TranslationError,
+)
 from math import pi
 
 
@@ -81,7 +89,6 @@ def wire_from_edges(edges: list[TopoDS_Edge]) -> TopoDS_Wire:
 
 def solid_from_faces(faces: list[TopoDS_Face]) -> TopoDS_Solid:
     """Create a solid from list of faces."""
-    # Sew the faces together to form a solid
     tol = 1e-6
     contin = True
 
@@ -100,11 +107,14 @@ def solid_from_faces(faces: list[TopoDS_Face]) -> TopoDS_Solid:
             break
 
     if contin:
-        raise ValueError("Failed to sew faces together.")
+        raise SewingError("Failed to sew faces together: tolerance got to {:.1e}".format(tol))
 
     solid_maker = BRepBuilderAPI_MakeSolid()
     solid_maker.Add(sewing.SewedShape())
-    return solid_maker.Solid()
+    try:
+        return solid_maker.Solid()
+    except RuntimeError:
+        raise SewingError("Failed to create solid from faces.")
 
 
 def solid_from_compound(compound: TopoDS_Compound) -> TopoDS_Solid:
@@ -118,8 +128,12 @@ def fix_solid(solid: TopoDS_Solid) -> TopoDS_Solid:
 
     fixer = ShapeFix_Solid(solid)
     fixer.SetPrecision(FIXSOLID_PRECISION)
-    fixer.Perform()
-    return fixer.Solid()
+
+    try:
+        fixer.Perform()
+        return fixer.Solid()
+    except RuntimeError:
+        raise FixSolidError("Failed to fix solid.")
 
 
 def face_from_pts(pts: list[gp_Pnt] | TopTools_ListOfShape) -> TopoDS_Face:
@@ -135,7 +149,10 @@ def face_from_pts(pts: list[gp_Pnt] | TopTools_ListOfShape) -> TopoDS_Face:
         wire_maker.Add(edge)
 
     wire = wire_maker.Wire()
-    return BRepBuilderAPI_MakeFace(wire, True).Face()
+    try:
+        return BRepBuilderAPI_MakeFace(wire, True).Face()
+    except RuntimeError:
+        raise FaceFromPointsError("Failed to create face from points.")
 
 
 def get_vertices_from_shape(shape: TopoDS_Shape) -> list[TopoDS_Vertex]:
@@ -189,17 +206,24 @@ def fillet_face_vertices(face: TopoDS_Face, radii: float | list[float]):
     if isinstance(radii, (float, int)):
         radii = [radii] * len(vertices)
     assert len(vertices) == len(radii), "Number of vertices and radii must match."
+    for radius in radii:
+        if radius > 0:
+            break
+    else:
+        return face
+
     fillet_maker = BRepFilletAPI_MakeFillet2d(face)
     for i, vertex in enumerate(vertices):
         if radii[i] > 0:
             fillet_maker.AddFillet(vertex, radii[i])
-    return fillet_maker.Shape()
+    try:
+        return fillet_maker.Shape()
+    except RuntimeError:
+        raise FilletFaceError("Failed to fillet face vertices.")
 
 
 def fillet_solid_edges(solid: TopoDS_Solid, edges: list[TopoDS_Edge], radii: float | list[float]):
     """Fillet the given edges of a solid with a given radius, or one radius at each edge."""
-    # edges = get_edges_from_shape(solid)
-    # edges = [edges[i] for i in range(len(edges)) if i % 2 == 0]  # removing duplicates
     if isinstance(radii, (float, int)):
         radii = [radii] * len(edges)
     assert len(edges) == len(radii), "Number of edges and radii must match."
@@ -207,18 +231,28 @@ def fillet_solid_edges(solid: TopoDS_Solid, edges: list[TopoDS_Edge], radii: flo
     for i, edge in enumerate(edges):
         if radii[i] > 0:
             fillet_maker.Add(radii[i], edge)
-    return fillet_maker.Shape()
+    try:
+        return fillet_maker.Shape()
+    except RuntimeError:
+        raise FilletSolidError("Failed to fillet solid edges.")
 
 
 def translate(object: TopoDS_Shape, vector: list[float], copy: bool = False):
     """Translate an object by a vector."""
     trsf = gp_Trsf()
     trsf.SetTranslation(gp_Vec(*vector))
-    return BRepBuilderAPI_Transform(object, trsf, copy).Shape()
+    try:
+        return BRepBuilderAPI_Transform(object, trsf, copy).Shape()
+    except RuntimeError:
+        raise TranslationError("Failed to translate object.")
 
 
 def rotation_array(
-    object: TopoDS_Shape, n: int, angle: float = 2 * pi, point: list[float] = [0, 0, 0], axis: list[float] = [1, 0, 0]
+    object: TopoDS_Shape,
+    n: int,
+    angle: float = 2 * pi,
+    point: list[float] = [0, 0, 0],
+    axis: list[float] = [1, 0, 0],
 ):
     """Rotate an object n times around an axis."""
     rotation_axis = gp_Ax1(gp_Pnt(*point), gp_Dir(*axis))
@@ -263,7 +297,9 @@ def boolean_union(
         for shape in check_generated:
             shape_generated = bool_fuse.Generated(shape)
             if len(shape_generated) > 0:
-                generated.extend(extract_shape_from_ListOfShape(shape_generated))
+                generated.append(extract_shape_from_ListOfShape(shape_generated))
+            else:
+                generated.append([])
     if check_modified is not None:
         if not bool_fuse.HasModified():
             print("Fusion bool has no modified shapes.")
@@ -271,7 +307,9 @@ def boolean_union(
         for shape in check_modified:
             shape_modified = bool_fuse.Modified(shape)
             if len(shape_modified) > 0:
-                modified.extend(extract_shape_from_ListOfShape(shape_modified))
+                modified.append(extract_shape_from_ListOfShape(shape_modified))
+            else:
+                modified.append([])
     if check_generated is not None and check_modified is None:
         return bool_fuse.Shape(), generated
     elif check_generated is None and check_modified is not None:
