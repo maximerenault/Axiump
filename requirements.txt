@@ -1,0 +1,4 @@
+numpy
+scipy
+conda-forge::pythonocc-core
+conda-forge::pyside6
