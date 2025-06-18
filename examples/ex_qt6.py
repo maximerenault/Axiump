@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from OCC.Display.backend import load_backend
-from axiumplib import BladeParameters, BladeBuilder
+from axiumplib import BladeParameters, BladeBuilder, FLAT, NACA
 
 load_backend("pyside6")
 import OCC.Display.qtDisplay as qtDisplay
@@ -86,13 +86,13 @@ class OCCParametricViewer(QDialog):
 
     def update_surface(self):
         blade_params = BladeParameters(
-            profile_type="flat",
+            profile_type=FLAT,
             min_radius=self.param1_slider.value() * self.slider_precision,
             max_radius=self.param2_slider.value() * self.slider_precision,
         )
         bb = BladeBuilder(blade_params)
         x_func = lambda x: x**3 * (6 * x**2 - 15 * x + 10)
-        solid = bb.create_blade().get_occ_solid(50, 20, x_func, x_func)
+        solid = bb.create_blade().get_occ_solid(71, 20, x_func, x_func)
 
         self.display.EraseAll()
         self.display.DisplayShape(solid, update=True)

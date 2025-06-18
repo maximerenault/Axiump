@@ -19,7 +19,9 @@ def display_profile(params):
 def get_profile_functions(params):
     profile_builder = ProfileBuilder(params)
     mov_vec = [0, -0.5 * params.chord_length * sin(params.profile_angle)]  # Centering around X axis
-    profile_builder.create_profile().bend_profile().rotate_profile().move_profile(mov_vec).wrap_on_cylinder()
+    profile_builder.create_profile().bend_profile().rotate_profile().move_profile(
+        mov_vec
+    ).wrap_on_cylinder()
     return profile_builder.get_profile_funcs()
 
 
