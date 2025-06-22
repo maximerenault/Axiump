@@ -199,7 +199,7 @@ def extract_shape_from_ListOfShape(list_of_shape: TopTools_ListOfShape) -> list[
     return shapes
 
 
-def fillet_face_vertices(face: TopoDS_Face, radii: float | list[float]):
+def fillet_face_vertices(face: TopoDS_Face, radii: float | list[float]) -> TopoDS_Face:
     """Fillet the vertices of a face with a given radius, or one radius at each vertex."""
     vertices = get_vertices_from_shape(face)
     vertices = [vertices[i] for i in range(len(vertices)) if i % 2 == 0]  # removing duplicates
@@ -222,7 +222,7 @@ def fillet_face_vertices(face: TopoDS_Face, radii: float | list[float]):
         raise FilletFaceError("Failed to fillet face vertices.")
 
 
-def fillet_solid_edges(solid: TopoDS_Solid, edges: list[TopoDS_Edge], radii: float | list[float]):
+def fillet_solid_edges(solid: TopoDS_Solid, edges: list[TopoDS_Edge], radii: float | list[float]) -> TopoDS_Shape:
     """Fillet the given edges of a solid with a given radius, or one radius at each edge."""
     if isinstance(radii, (float, int)):
         radii = [radii] * len(edges)
@@ -237,7 +237,7 @@ def fillet_solid_edges(solid: TopoDS_Solid, edges: list[TopoDS_Edge], radii: flo
         raise FilletSolidError("Failed to fillet solid edges.")
 
 
-def translate(object: TopoDS_Shape, vector: list[float], copy: bool = False):
+def translate(object: TopoDS_Shape, vector: list[float], copy: bool = False) -> TopoDS_Shape:
     """Translate an object by a vector."""
     trsf = gp_Trsf()
     trsf.SetTranslation(gp_Vec(*vector))
@@ -247,13 +247,30 @@ def translate(object: TopoDS_Shape, vector: list[float], copy: bool = False):
         raise TranslationError("Failed to translate object.")
 
 
+def rotate(
+    object: TopoDS_Shape,
+    angle: float = 2 * pi,
+    axis: list[float] = [1, 0, 0],
+    point: list[float] = [0, 0, 0],
+    copy: bool = False,
+) -> TopoDS_Shape:
+    """Rotate an object around an axis."""
+    rotation_axis = gp_Ax1(gp_Pnt(*point), gp_Dir(*axis))
+    trsf = gp_Trsf()
+    trsf.SetRotation(rotation_axis, angle)
+    try:
+        return BRepBuilderAPI_Transform(object, trsf, copy).Shape()
+    except RuntimeError:
+        raise TranslationError("Failed to rotate object.")
+
+
 def rotation_array(
     object: TopoDS_Shape,
     n: int,
     angle: float = 2 * pi,
     point: list[float] = [0, 0, 0],
     axis: list[float] = [1, 0, 0],
-):
+) -> list[TopoDS_Shape]:
     """Rotate an object n times around an axis."""
     rotation_axis = gp_Ax1(gp_Pnt(*point), gp_Dir(*axis))
     array = [object]
