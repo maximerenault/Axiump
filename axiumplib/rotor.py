@@ -1,6 +1,6 @@
 from math import atan
 from axiumplib.hub import HubBuilder, HubParameters
-from axiumplib.blade import BladeBuilder, BladeParameters, is_edge_at_radius
+from axiumplib.blade import BladeBuilder, BladeParameters, is_edge_at_radius, DEFAULT_SEAMS
 from axiumplib.shroud import ShroudBuilder, ShroudParameters
 from axiumplib.utils.occ import (
     boolean_union,
@@ -38,9 +38,10 @@ class RotorBuilder:
         v_points=30,
         u_func=lambda x: x**3 * (6 * x**2 - 15 * x + 10),
         v_func=lambda x: x**3 * (6 * x**2 - 15 * x + 10),
+        u_seams=DEFAULT_SEAMS,
     ):
         n_blades = self.params.n_blades
-        blade = BladeBuilder(self.params.blade_params).create_blade().get_occ_solid(u_points, v_points, u_func, v_func)
+        blade = BladeBuilder(self.params.blade_params).create_blade().get_occ_solid(u_points, v_points, u_func, v_func, u_seams)
         blade = translate(blade, (self.params.hub_front_length + self.params.blade_clearance / 2, 0, 0))
         blades = rotation_array(blade, n_blades)
 
