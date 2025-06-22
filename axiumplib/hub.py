@@ -1,6 +1,13 @@
 from OCC.Core.gp import gp_Pnt, gp_Ax1, gp_Dir
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeRevol
-from axiumplib.utils.occ import face_from_pts, fillet_face_vertices
+from axiumplib.utils.occ import (
+    face_from_pts,
+    fillet_face_vertices,
+    boolean_union,
+    fix_solid,
+    solid_from_compound,
+    rotation_array,
+)
 from math import tan, pi
 
 
@@ -42,14 +49,17 @@ class HubBuilder:
 
             profile_face = face_from_pts(pts)
             fillet_face = fillet_face_vertices(
-                profile_face, [0, radius_front, front_fillet_radius, back_fillet_radius, radius_back, 0]
+                profile_face,
+                [0, radius_front, front_fillet_radius, back_fillet_radius, radius_back, 0],
             )
+
+            axis = gp_Ax1(gp_Pnt(), gp_Dir())  # X-axis
+            third_hub = BRepPrimAPI_MakeRevol(fillet_face, axis, 2 * pi / 3).Shape()
+            hub_parts = rotation_array(third_hub, 3)
+            self.__hub = fix_solid(solid_from_compound(boolean_union(hub_parts)))
 
         else:
             raise ValueError(f"Unknown hub type: {self.__params.type}")
-
-        axis = gp_Ax1(gp_Pnt(), gp_Dir())  # X-axis
-        self.__hub = BRepPrimAPI_MakeRevol(fillet_face, axis).Shape()
 
         return self
 
