@@ -53,7 +53,7 @@ class RotorBuilder:
         self.parts.extend(blades)
         return self
 
-    def get_occ_solid(self, fillet_radius=0.0):
+    def get_occ_solid(self, fillet_radius=0.0, get_fillet_edges=False):
         union, modified = boolean_union(self.parts, check_modified=self.fillet_edges)
         modified = [edge for edges in modified for edge in edges]
         if fillet_radius > 0:
@@ -63,6 +63,8 @@ class RotorBuilder:
             solid = fix_solid(solids[0])
         else:
             solid = fix_solid(solid_from_compound(union))
+        if get_fillet_edges:
+            return solid, modified
         return solid
 
 
