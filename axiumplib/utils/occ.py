@@ -22,7 +22,7 @@ from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.BRepFilletAPI import BRepFilletAPI_MakeFillet2d, BRepFilletAPI_MakeFillet
 from OCC.Core.TopAbs import TopAbs_VERTEX, TopAbs_EDGE, TopAbs_FACE, TopAbs_WIRE, TopAbs_SOLID
 from OCC.Core.TopTools import TopTools_ListOfShape
-from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Fuse
+from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Fuse, BRepAlgoAPI_Cut
 from OCC.Core.Geom import Geom_Curve
 from axiumplib.glob_params import FUSE_TOL, FIXSOLID_PRECISION
 from axiumplib.utils.errors import (
@@ -334,6 +334,63 @@ def boolean_union(
     elif check_generated is not None and check_modified is not None:
         return bool_fuse.Shape(), generated, modified
     return bool_fuse.Shape()
+
+
+def boolean_difference(
+    objects: list[TopoDS_Shape],
+    tools: list[TopoDS_Shape],
+    check_generated: list[TopoDS_Shape] | None = None,
+    check_modified: list[TopoDS_Shape] | None = None,
+) -> TopoDS_Shape:
+    """Perform a Boolean difference on a list of shapes."""
+    if not objects:
+        raise ValueError("The list of solid objects is empty.")
+    if not tools:
+        raise ValueError("The list of solid tools is empty.")
+    objectShapes = TopTools_ListOfShape()
+    for obj in objects:
+        objectShapes.Append(obj)
+    toolShapes = TopTools_ListOfShape()
+    for too in tools:
+        toolShapes.Append(too)
+    bool_diff = BRepAlgoAPI_Cut()
+    bool_diff.SetFuzzyValue(FUSE_TOL)
+    bool_diff.SetArguments(objectShapes)
+    bool_diff.SetTools(toolShapes)
+    bool_diff.SetRunParallel(True)
+    bool_diff.Build()
+    try:
+        bool_diff.SimplifyResult()
+    except:
+        pass
+    bool_diff.Check()
+    if check_generated is not None:
+        if not bool_diff.HasGenerated():
+            print("Fusion bool has no generated shapes.")
+        generated = []
+        for shape in check_generated:
+            shape_generated = bool_diff.Generated(shape)
+            if len(shape_generated) > 0:
+                generated.append(extract_shape_from_ListOfShape(shape_generated))
+            else:
+                generated.append([])
+    if check_modified is not None:
+        if not bool_diff.HasModified():
+            print("Fusion bool has no modified shapes.")
+        modified = []
+        for shape in check_modified:
+            shape_modified = bool_diff.Modified(shape)
+            if len(shape_modified) > 0:
+                modified.append(extract_shape_from_ListOfShape(shape_modified))
+            else:
+                modified.append([])
+    if check_generated is not None and check_modified is None:
+        return bool_diff.Shape(), generated
+    elif check_generated is None and check_modified is not None:
+        return bool_diff.Shape(), modified
+    elif check_generated is not None and check_modified is not None:
+        return bool_diff.Shape(), generated, modified
+    return bool_diff.Shape()
 
 
 def save_shape_to_brep(shape: TopoDS_Shape, filename: str):
