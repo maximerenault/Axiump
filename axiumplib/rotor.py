@@ -86,6 +86,8 @@ class RotorParameters:
         hub_back_length=1.2,
         hub_front_angle=0.5,
         hub_back_angle=0.2,
+        hub_front_fillet_radius=0.04,
+        hub_back_fillet_radius=0.08,
         shroud_thickness=0.05,
         shroud_slant_angle=1,
         shroud_in_fillet_radius=0.01,
@@ -106,6 +108,8 @@ class RotorParameters:
         self.hub_back_length = hub_back_length
         self.hub_front_angle = hub_front_angle
         self.hub_back_angle = hub_back_angle
+        self.hub_front_fillet_radius = hub_front_fillet_radius
+        self.hub_back_fillet_radius = hub_back_fillet_radius
         self.shroud_thickness = shroud_thickness
         self.shroud_slant_angle = shroud_slant_angle
         self.shroud_in_fillet_radius = shroud_in_fillet_radius
@@ -130,10 +134,12 @@ class RotorParameters:
             type=self.hub_type,
             tot_length=self.tot_length,
             radius=self.hub_radius,
-            front_length=self.hub_front_length,
-            back_length=self.hub_back_length,
+            front_length=self.hub_front_length - 0.036,
+            back_length=self.hub_back_length - 0.036,
             front_angle=self.hub_front_angle,
             back_angle=self.hub_back_angle,
+            front_fillet_radius=self.hub_front_fillet_radius,
+            back_fillet_radius=self.hub_back_fillet_radius,
         )
 
     @property
