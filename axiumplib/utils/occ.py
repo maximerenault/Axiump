@@ -227,6 +227,9 @@ def fillet_solid_edges(solid: TopoDS_Solid, edges: list[TopoDS_Edge], radii: flo
     if isinstance(radii, (float, int)):
         radii = [radii] * len(edges)
     assert len(edges) == len(radii), "Number of edges and radii must match."
+    if len(edges) == 0:
+        print("Warning: No edges to fillet.")
+        return solid
     fillet_maker = BRepFilletAPI_MakeFillet(solid)
     for i, edge in enumerate(edges):
         if radii[i] > 0:
@@ -283,8 +286,7 @@ def rotation_array(
 
 def boolean_union(
     shapes: list[TopoDS_Shape],
-    check_generated: list[TopoDS_Shape] | None = None,
-    check_modified: list[TopoDS_Shape] | None = None,
+    get_section_edges: bool = False,
 ) -> TopoDS_Shape:
     """Perform a Boolean union on a list of shapes."""
     if not shapes:
@@ -307,40 +309,19 @@ def boolean_union(
     except:
         pass
     bool_fuse.Check()
-    if check_generated is not None:
-        if not bool_fuse.HasGenerated():
-            print("Fusion bool has no generated shapes.")
-        generated = []
-        for shape in check_generated:
-            shape_generated = bool_fuse.Generated(shape)
-            if len(shape_generated) > 0:
-                generated.append(extract_shape_from_ListOfShape(shape_generated))
-            else:
-                generated.append([])
-    if check_modified is not None:
-        if not bool_fuse.HasModified():
-            print("Fusion bool has no modified shapes.")
-        modified = []
-        for shape in check_modified:
-            shape_modified = bool_fuse.Modified(shape)
-            if len(shape_modified) > 0:
-                modified.append(extract_shape_from_ListOfShape(shape_modified))
-            else:
-                modified.append([])
-    if check_generated is not None and check_modified is None:
-        return bool_fuse.Shape(), generated
-    elif check_generated is None and check_modified is not None:
-        return bool_fuse.Shape(), modified
-    elif check_generated is not None and check_modified is not None:
-        return bool_fuse.Shape(), generated, modified
+    if get_section_edges:
+        section_edges = []
+        shape_section = bool_fuse.SectionEdges()
+        if len(shape_section) > 0:
+            section_edges = extract_shape_from_ListOfShape(shape_section)
+        return bool_fuse.Shape(), section_edges
     return bool_fuse.Shape()
 
 
 def boolean_difference(
     objects: list[TopoDS_Shape],
     tools: list[TopoDS_Shape],
-    check_generated: list[TopoDS_Shape] | None = None,
-    check_modified: list[TopoDS_Shape] | None = None,
+    get_section_edges: bool = False,
 ) -> TopoDS_Shape:
     """Perform a Boolean difference on a list of shapes."""
     if not objects:
@@ -364,32 +345,12 @@ def boolean_difference(
     except:
         pass
     bool_diff.Check()
-    if check_generated is not None:
-        if not bool_diff.HasGenerated():
-            print("Fusion bool has no generated shapes.")
-        generated = []
-        for shape in check_generated:
-            shape_generated = bool_diff.Generated(shape)
-            if len(shape_generated) > 0:
-                generated.append(extract_shape_from_ListOfShape(shape_generated))
-            else:
-                generated.append([])
-    if check_modified is not None:
-        if not bool_diff.HasModified():
-            print("Fusion bool has no modified shapes.")
-        modified = []
-        for shape in check_modified:
-            shape_modified = bool_diff.Modified(shape)
-            if len(shape_modified) > 0:
-                modified.append(extract_shape_from_ListOfShape(shape_modified))
-            else:
-                modified.append([])
-    if check_generated is not None and check_modified is None:
-        return bool_diff.Shape(), generated
-    elif check_generated is None and check_modified is not None:
-        return bool_diff.Shape(), modified
-    elif check_generated is not None and check_modified is not None:
-        return bool_diff.Shape(), generated, modified
+    if get_section_edges:
+        section_edges = []
+        shape_section = bool_diff.SectionEdges()
+        if len(shape_section) > 0:
+            section_edges = extract_shape_from_ListOfShape(shape_section)
+        return bool_diff.Shape(), section_edges
     return bool_diff.Shape()
 
 
