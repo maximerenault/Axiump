@@ -11,6 +11,7 @@ from axiumplib.utils.occ import (
     get_solids_from_shape,
     get_edges_from_shape,
     fillet_solid_edges,
+    SewingError,
 )
 from axiumplib.glob_params import NACA, FLAT
 
@@ -44,27 +45,23 @@ class RotorBuilder:
         blade = BladeBuilder(self.params.blade_params).create_blade().get_occ_solid(u_points, v_points, u_func, v_func, u_seams)
         blade = translate(blade, (self.params.hub_front_length + self.params.blade_clearance / 2, 0, 0))
         blades = rotation_array(blade, n_blades)
-
-        edges = [edge for i in range(n_blades) for edge in get_edges_from_shape(blades[i])]
-        hub_edges = [edge for edge in edges if is_edge_at_radius(edge, self.params.hub_radius)]
-        shroud_edges = [edge for edge in edges if is_edge_at_radius(edge, self.params.blade_max_radius)]
-        self.fillet_edges.extend(hub_edges + shroud_edges)
-
         self.parts.extend(blades)
         return self
 
     def get_occ_solid(self, fillet_radius=0.0, get_fillet_edges=False):
-        union, modified = boolean_union(self.parts, check_modified=self.fillet_edges)
-        modified = [edge for edges in modified for edge in edges]
+        union, section_edges = boolean_union(self.parts, get_section_edges=True)
         if fillet_radius > 0:
-            union = fillet_solid_edges(union, modified, fillet_radius)
+            union = fillet_solid_edges(union, section_edges, fillet_radius)
         solids = get_solids_from_shape(union)
         if len(solids) == 1:
             solid = fix_solid(solids[0])
         else:
-            solid = fix_solid(solid_from_compound(union))
+            try:
+                solid = fix_solid(solid_from_compound(union))
+            except SewingError:
+                solid = solids
         if get_fillet_edges:
-            return solid, modified
+            return solid, section_edges
         return solid
 
 
@@ -122,8 +119,8 @@ class RotorParameters:
             blade_length=self.tot_length - self.hub_front_length - self.hub_back_length - self.blade_clearance,
             thickness=self.blade_thickness,
             camber_position=self.blade_camber_position,
-            min_radius=self.hub_radius,
-            max_radius=self.blade_max_radius,
+            min_radius=self.hub_radius*0.99,
+            max_radius=self.blade_max_radius*1.01,
             lead_angle_func=self.blade_lead_angle_func,
             camber_angle_func=self.blade_camber_angle_func,
         )
